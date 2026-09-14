@@ -156,6 +156,11 @@ class ConstantParse(unittest.TestCase):
       parseConstantToken(PointerTy(0), "zeroinitializer", {}, []),
       NullPtrVal(PointerTy(0)))
 
+  def testExternalGlobal(self):
+    self.assertEqual(
+      parseAssembly("@output = external global ptr").global_vars["output"],
+      GlobalVar("output", PointerTy(0), False, None))
+
   def testParseStruct(self):
     self.assertEqual(
       parseTypeConstantTokens(parseUntilEnd("type <{ i1, ptr addrspace(7) }> <{ i1 true, ptr addrspace(7) null }>"), {}, []),

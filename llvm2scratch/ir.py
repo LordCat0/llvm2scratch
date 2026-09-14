@@ -429,7 +429,7 @@ class GlobalVar():
   name: str
   type: Type
   is_constant: bool
-  init: KnownVal
+  init: KnownVal | None
 
 @dataclass
 class Module():

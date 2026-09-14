@@ -429,6 +429,10 @@ def decodeModule(mod: llvm.ModuleRef) -> Module:
   for glob in mod.global_variables:
     glob_name = glob.name
 
+    if glob.is_declaration:
+      glob_vars[glob_name] = GlobalVar(glob_name, decodeType(glob.global_value_type, structs, func_names), False, None)
+      continue
+
     tokens = parseUntilEnd(str(glob))
     start = 0
     while tokens[start] not in ["constant", "global"]:
