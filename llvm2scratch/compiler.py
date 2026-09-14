@@ -3338,6 +3338,10 @@ def transIntrinsic(intrinsic: ir.Intrinsic, args: list[ir.Value], result: Variab
         sb3.BlockList([result.setValue(sb3.Known(0))]),
         sb3.BlockList([result.setValue(sb3.Op("sub", lft, rgt))])))
 
+    case ir.Intrinsic.GetRounding:
+      assert result is not None
+      blocks.add(result.setValue(sb3.Known(1)))
+
     case ir.Intrinsic.MemCpy:
       dest, src, length, _volatile = values
       assert isinstance(dest, sb3.Value) and isinstance(src, sb3.Value) and isinstance(length, sb3.Value)

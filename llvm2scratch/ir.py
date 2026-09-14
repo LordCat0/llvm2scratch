@@ -102,6 +102,7 @@ class Intrinsic(Enum):
   Expect = "llvm.expect"
   ExpectWithProbability = "llvm.expect.with.probability"
   Assume = "llvm.assume"
+  GetRounding = "llvm.get.rounding"
   PtrMask = "llvm.ptrmask"
 
 @dataclass
