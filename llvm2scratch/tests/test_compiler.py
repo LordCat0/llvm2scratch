@@ -97,5 +97,27 @@ class TestBinOp(unittest.TestCase):
       }
     """)
 
+  def testScratchApiPrimitives(self):
+    project = compile("""
+      declare void @SB3_move(double)
+      declare void @SB3_play_sound(ptr)
+      declare i32 @SB3_mouse_down()
+      declare void @SB3_pen_down()
+      define i32 @main() {
+      entry:
+        call void @SB3_move(double 10.0)
+        call void @SB3_play_sound(ptr null)
+        %mouse = call i32 @SB3_mouse_down()
+        call void @SB3_pen_down()
+        ret i32 %mouse
+      }
+    """)
+    ctx = project.getCtx()
+    raw = ctx.getRaw()
+    opcodes = [block["opcode"] for block in raw["blocks"].values()]
+    for opcode in ["motion_movesteps", "sound_play", "sensing_mousedown", "pen_penDown"]:
+      self.assertIn(opcode, opcodes)
+    self.assertIn("pen", ctx.extensions)
+
 if __name__ == "__main__":
   _ = unittest.main()

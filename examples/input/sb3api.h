@@ -29,3 +29,49 @@ int SB3_ask_str_unsafe(const char *output, const char *input);
 
 // Returns the days since 2000 in UTC time
 double SB3_days_since_2000();
+
+// Motion
+void SB3_move(double steps);
+void SB3_turn_right(double degrees);
+void SB3_turn_left(double degrees);
+void SB3_go_to_xy(double x, double y);
+void SB3_point_in_direction(double direction);
+void SB3_change_x(double amount);
+void SB3_set_x(double x);
+void SB3_change_y(double amount);
+void SB3_set_y(double y);
+void SB3_if_on_edge_bounce();
+void SB3_set_rotation_all_around();
+void SB3_set_rotation_left_right();
+void SB3_set_rotation_none();
+double SB3_x_position();
+double SB3_y_position();
+double SB3_direction();
+
+// Sound names and key names are null-terminated strings.
+void SB3_play_sound(const char *sound);
+void SB3_play_sound_until_done(const char *sound);
+void SB3_stop_all_sounds();
+void SB3_change_volume(double amount);
+void SB3_set_volume(double volume);
+double SB3_volume();
+
+// Sensing
+int SB3_key_pressed(const char *key);
+int SB3_mouse_down();
+double SB3_mouse_x();
+double SB3_mouse_y();
+int SB3_touching_mouse();
+double SB3_distance_to_mouse();
+double SB3_loudness();
+double SB3_timer();
+void SB3_reset_timer();
+
+// Pen extension. Colors use Scratch's decimal RGB representation (0xRRGGBB).
+void SB3_pen_clear();
+void SB3_pen_stamp();
+void SB3_pen_down();
+void SB3_pen_up();
+void SB3_pen_set_color(int color);
+void SB3_pen_change_size(double amount);
+void SB3_pen_set_size(double size);

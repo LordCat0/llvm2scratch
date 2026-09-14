@@ -4738,6 +4738,117 @@ def addForeignFunctions(ctx: Context) -> Context:
     sb3.EditVar("set", ctx.cfg.return_var, sb3.DaysSince2000()),
   ]), ctx)
 
+  # Motion
+  for name, opcode, input_name in [
+    ("SB3_move", "motion_movesteps", "STEPS"),
+    ("SB3_turn_right", "motion_turnright", "DEGREES"),
+    ("SB3_turn_left", "motion_turnleft", "DEGREES"),
+    ("SB3_point_in_direction", "motion_pointindirection", "DIRECTION"),
+    ("SB3_change_x", "motion_changexby", "DX"),
+    ("SB3_set_x", "motion_setx", "X"),
+    ("SB3_change_y", "motion_changeyby", "DY"),
+    ("SB3_set_y", "motion_sety", "Y"),
+  ]:
+    ctx = addFunc(name, ["value"], sb3.BlockList([
+      sb3.ScratchCommand(opcode, {input_name: get_param("value")}),
+    ]), ctx)
+
+  ctx = addFunc("SB3_go_to_xy", ["x", "y"], sb3.BlockList([
+    sb3.ScratchCommand("motion_gotoxy", {"X": get_param("x"), "Y": get_param("y")}),
+  ]), ctx)
+  ctx = addFunc("SB3_if_on_edge_bounce", [], sb3.BlockList([
+    sb3.ScratchCommand("motion_ifonedgebounce"),
+  ]), ctx)
+  for name, style in [
+    ("SB3_set_rotation_all_around", "all around"),
+    ("SB3_set_rotation_left_right", "left-right"),
+    ("SB3_set_rotation_none", "don't rotate"),
+  ]:
+    ctx = addFunc(name, [], sb3.BlockList([
+      sb3.ScratchCommand("motion_setrotationstyle", fields={"STYLE": style}),
+    ]), ctx)
+  for name, opcode in [
+    ("SB3_x_position", "motion_xposition"),
+    ("SB3_y_position", "motion_yposition"),
+    ("SB3_direction", "motion_direction"),
+  ]:
+    ctx = addFunc(name, [], sb3.BlockList([
+      sb3.EditVar("set", ctx.cfg.return_var, sb3.ScratchReporter(opcode)),
+    ]), ctx)
+
+  # Sound
+  for name, opcode in [
+    ("SB3_play_sound", "sound_play"),
+    ("SB3_play_sound_until_done", "sound_playuntildone"),
+  ]:
+    ctx = addFunc(name, ["sound"], sb3.BlockList([
+      sb3.ProcedureCall("!helper_str2scratch", [get_param("sound")]),
+      sb3.ScratchCommand(opcode, {"SOUND_MENU": sb3.GetVar(ctx.cfg.return_var)}, ["SOUND_MENU"]),
+    ]), ctx)
+  ctx = addFunc("SB3_stop_all_sounds", [], sb3.BlockList([
+    sb3.ScratchCommand("sound_stopallsounds"),
+  ]), ctx)
+  for name, opcode in [
+    ("SB3_change_volume", "sound_changevolumeby"),
+    ("SB3_set_volume", "sound_setvolumeto"),
+  ]:
+    ctx = addFunc(name, ["value"], sb3.BlockList([
+      sb3.ScratchCommand(opcode, {"VOLUME": get_param("value")}),
+    ]), ctx)
+  ctx = addFunc("SB3_volume", [], sb3.BlockList([
+    sb3.EditVar("set", ctx.cfg.return_var, sb3.ScratchReporter("sound_volume")),
+  ]), ctx)
+
+  # Keyboard, mouse, and other sensing primitives
+  ctx = addFunc("SB3_key_pressed", ["key"], sb3.BlockList([
+    sb3.ProcedureCall("!helper_str2scratch", [get_param("key")]),
+    sb3.EditVar("set", ctx.cfg.return_var, sb3.Op("bool_to_float",
+      sb3.ScratchBooleanReporter("sensing_keypressed", "KEY_OPTION", sb3.GetVar(ctx.cfg.return_var)))),
+  ]), ctx)
+  ctx = addFunc("SB3_mouse_down", [], sb3.BlockList([
+    sb3.EditVar("set", ctx.cfg.return_var, sb3.Op("bool_to_float",
+      sb3.ScratchBooleanReporter("sensing_mousedown"))),
+  ]), ctx)
+  for name, opcode in [
+    ("SB3_mouse_x", "sensing_mousex"),
+    ("SB3_mouse_y", "sensing_mousey"),
+    ("SB3_loudness", "sensing_loudness"),
+    ("SB3_timer", "sensing_timer"),
+  ]:
+    ctx = addFunc(name, [], sb3.BlockList([
+      sb3.EditVar("set", ctx.cfg.return_var, sb3.ScratchReporter(opcode)),
+    ]), ctx)
+  ctx = addFunc("SB3_reset_timer", [], sb3.BlockList([
+    sb3.ScratchCommand("sensing_resettimer"),
+  ]), ctx)
+  ctx = addFunc("SB3_touching_mouse", [], sb3.BlockList([
+    sb3.EditVar("set", ctx.cfg.return_var, sb3.Op("bool_to_float",
+      sb3.ScratchBooleanReporter("sensing_touchingobject", "TOUCHINGOBJECTMENU", sb3.Known("_mouse_")))),
+  ]), ctx)
+  ctx = addFunc("SB3_distance_to_mouse", [], sb3.BlockList([
+    sb3.EditVar("set", ctx.cfg.return_var, sb3.ScratchReporter(
+      "sensing_distanceto", {"DISTANCETOMENU": sb3.Known("_mouse_")}, ["DISTANCETOMENU"])),
+  ]), ctx)
+
+  # Pen extension
+  for name, opcode in [
+    ("SB3_pen_clear", "pen_clear"),
+    ("SB3_pen_stamp", "pen_stamp"),
+    ("SB3_pen_down", "pen_penDown"),
+    ("SB3_pen_up", "pen_penUp"),
+  ]:
+    ctx = addFunc(name, [], sb3.BlockList([
+      sb3.ScratchCommand(opcode, extension="pen"),
+    ]), ctx)
+  for name, opcode, input_name in [
+    ("SB3_pen_set_color", "pen_setPenColorToColor", "COLOR"),
+    ("SB3_pen_change_size", "pen_changePenSizeBy", "SIZE"),
+    ("SB3_pen_set_size", "pen_setPenSizeTo", "SIZE"),
+  ]:
+    ctx = addFunc(name, ["value"], sb3.BlockList([
+      sb3.ScratchCommand(opcode, {input_name: get_param("value")}, extension="pen"),
+    ]), ctx)
+
   # These functions are used in libc in Scratch-Stdlib. Eventually they will be moved there
   # when a sufficient FFI API is supported
 

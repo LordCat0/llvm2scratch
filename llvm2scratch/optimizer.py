@@ -64,6 +64,8 @@ def getInputs(block: sb3.Block) -> list[sb3.Value]:
       return inputs
     case sb3.ProcedureCall():
       return block.arguments
+    case sb3.ScratchCommand():
+      return list(block.inputs.values())
     case _:
       return []
 
@@ -86,6 +88,9 @@ def setInputs(block: sb3.Block, inputs: list[sb3.Value]) -> sb3.Block:
     case sb3.ProcedureCall():
       assert len(inputs) == len(block.arguments)
       block.arguments = inputs
+    case sb3.ScratchCommand():
+      assert len(inputs) == len(block.inputs)
+      block.inputs = dict(zip(block.inputs, inputs))
     case _:
       assert len(inputs) == 0
   return block
@@ -429,6 +434,19 @@ def getValueVarUse(value: sb3.Value) -> tuple[set[str], Counter[str]]:
   match value:
     case sb3.Known() | sb3.GetParam() | sb3.DaysSince2000():
       result = set(), Counter()
+    case sb3.ScratchReporter():
+      depends = set()
+      counts = Counter()
+      for child in value.inputs.values():
+        child_depends, child_counts = getValueVarUse(child)
+        depends.update(child_depends)
+        counts += child_counts
+      result = depends, counts
+    case sb3.ScratchBooleanReporter():
+      if value.value is None:
+        result = set(), Counter()
+      else:
+        result = getValueVarUse(value.value)
     case sb3.GetVar():
       name = "var:" + value.var_name
       result = {name}, Counter({name: 1})
@@ -635,6 +653,8 @@ def getValueCost(value: sb3.Value, perf: target.TargetPerf) -> float:
       cost = perf.at_index if value.op == "atindex" else perf.index_of
     case sb3.GetListLength():          cost = perf.length_of_list
     case sb3.GetParam():               cost = perf.param
+    case sb3.ScratchReporter() | sb3.ScratchBooleanReporter():
+      cost = float("inf")
     case _:
       raise OptimizerException(f"Unknown value, {type(value)}")
 
@@ -663,6 +683,17 @@ def assignmentElisionValue(value: sb3.Value, to_elide: dict[str, sb3.Value]) -> 
          sb3.DaysSince2000() | sb3.GetListLength():
       result = value
       did_opti = False
+    case sb3.ScratchReporter():
+      did_opti = False
+      for name, child in value.inputs.items():
+        value.inputs[name], child_did_opti = assignmentElisionValue(child, to_elide)
+        did_opti |= child_did_opti
+      result = value
+    case sb3.ScratchBooleanReporter():
+      did_opti = False
+      if value.value is not None:
+        value.value, did_opti = assignmentElisionValue(value.value, to_elide)
+      result = value
     case sb3.GetVar():
       name = "var:" + value.var_name
       if name in to_elide:

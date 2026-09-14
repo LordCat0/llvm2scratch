@@ -119,6 +119,7 @@ class Project:
   code: list[BlockList] = field(default_factory=list)
   lists: dict[str, list[Known]] = field(default_factory=dict)
   costumes: list[str] = field(default_factory=list)
+  extensions: list[str] = field(default_factory=list)
 
   def export(self, filename: str, format: Format) -> None:
     """Exports the project into a .sb3/.sprite3 file"""
@@ -141,6 +142,7 @@ class Project:
   def getCtx(self) -> ScratchContext:
     """Converts the project into a ScratchContext which can be used to get the raw project"""
     ctx = ScratchContext(self.cfg)
+    ctx.extensions.extend(self.extensions)
     for name, scratch_list in self.lists.items():
       ctx.addOrGetList(name, scratch_list)
     for block_list in self.code:
@@ -158,6 +160,7 @@ class ScratchContext:
   blocks: dict[Id, dict] = field(default_factory=dict)
   late_blocks: list[tuple[Id, LateBlock, BlockMeta]] = field(default_factory=list)
   costumes: list[str] = field(default_factory=list)
+  extensions: list[str] = field(default_factory=list)
   generated_ids: int = 0
   generated_var_ids: int = 0
   exported: bool = False
@@ -445,6 +448,84 @@ class BooleanValue(Value):
   """A boolean value (a diamond shaped block)"""
   def getRawBoolValue(self, parent: str, ctx: ScratchContext) -> tuple[list | None, ScratchContext]:
     raise ScratchException("Cannot export for generic type 'BooleanValue'; must be a derived class")
+
+@dataclass
+class ScratchCommand(Block):
+  """A Scratch primitive that does not need custom serialization logic."""
+  opcode: str
+  inputs: dict[str, Value] = field(default_factory=dict)
+  string_inputs: list[str] = field(default_factory=list)
+  fields: dict[str, str] = field(default_factory=dict)
+  extension: str | None = None
+
+  def getRaw(self, my_id: Id, ctx: ScratchContext) -> tuple[dict, ScratchContext]:
+    raw_inputs = {}
+    for name, value in self.inputs.items():
+      cast = ScratchCast.TO_NUM
+      if name in self.string_inputs:
+        cast = ScratchCast.TO_STR
+      raw_inputs[name], ctx = value.getRawValue(my_id, ctx, cast)
+
+    if self.extension is not None and self.extension not in ctx.extensions:
+      ctx.extensions.append(self.extension)
+
+    raw = {"opcode": self.opcode, "inputs": raw_inputs}
+    if self.fields:
+      raw["fields"] = {name: [value, None] for name, value in self.fields.items()}
+    return raw, ctx
+
+  def stringify(self, sb: bool=False) -> str:
+    values = " ".join(value.stringify(sb) for value in self.inputs.values())
+    return f"{self.opcode} {values}".rstrip()
+
+@dataclass
+class ScratchReporter(Value):
+  """A Scratch reporter that does not need custom serialization logic."""
+  opcode: str
+  inputs: dict[str, Value] = field(default_factory=dict)
+  string_inputs: list[str] = field(default_factory=list)
+  fields: dict[str, str] = field(default_factory=dict)
+
+  def getRawValue(self, parent: Id, ctx: ScratchContext, cast: ScratchCast) -> tuple[list, ScratchContext]:
+    id = ctx.genId()
+    raw_inputs = {}
+    for name, value in self.inputs.items():
+      input_cast = ScratchCast.TO_NUM
+      if name in self.string_inputs:
+        input_cast = ScratchCast.TO_STR
+      raw_inputs[name], ctx = value.getRawValue(id, ctx, input_cast)
+
+    raw = {"opcode": self.opcode, "inputs": raw_inputs}
+    if self.fields:
+      raw["fields"] = {name: [value, None] for name, value in self.fields.items()}
+    ctx.addBlock(id, RawBlock(raw), BlockMeta(parent))
+    return [3, id], ctx
+
+  def stringify(self, sb: bool=False) -> str:
+    return f"({self.opcode})"
+
+@dataclass
+class ScratchBooleanReporter(BooleanValue):
+  """A Scratch boolean reporter with an optional string-valued input."""
+  opcode: str
+  input_name: str | None = None
+  value: Value | None = None
+
+  def getRawValue(self, parent: Id, ctx: ScratchContext, cast: ScratchCast) -> tuple[list, ScratchContext]:
+    return self.getRawBoolValue(parent, ctx)
+
+  def getRawBoolValue(self, parent: Id, ctx: ScratchContext) -> tuple[list, ScratchContext]:
+    id = ctx.genId()
+    raw = {"opcode": self.opcode, "inputs": {}}
+    if self.input_name is not None:
+      assert self.value is not None
+      raw_value, ctx = self.value.getRawValue(id, ctx, ScratchCast.TO_STR)
+      raw["inputs"] = {self.input_name: raw_value}
+    ctx.addBlock(id, RawBlock(raw), BlockMeta(parent))
+    return [2, id], ctx
+
+  def stringify(self, sb: bool=False) -> str:
+    return f"<{self.opcode}>"
 
 @dataclass
 class Known(Value):
@@ -953,7 +1034,9 @@ class Op(Value):
   right: Value | None = None
 
   def __post_init__(self):
-    takes_one_op = self.op in ["length_of", "round", "bool_to_float", "str_to_float"] or self.op not in SHORT_OP_TO_OPCODE # if op is length_of, round or is a general op
+    takes_one_op = self.op in ["length_of", "round", "bool_to_float", "str_to_float",
+                               "abs", "floor", "ceiling", "sqrt", "sin", "cos", "tan",
+                               "asin", "acos", "atan", "ln", "log", "e ^", "10 ^"]
     given_one_op = self.right is None
 
     if takes_one_op != given_one_op:
@@ -989,7 +1072,7 @@ class Op(Value):
         if takes_one_op:
           lft_param = "NUM"
 
-    opcode = SHORT_OP_TO_OPCODE.setdefault(self.op, "operator_mathop")
+    opcode = SHORT_OP_TO_OPCODE.get(self.op, "operator_mathop")
 
     casts_left_input_to = ScratchCast.TO_NUM
     if self.op in ["join", "length_of"]:
@@ -1579,7 +1662,7 @@ def exportData(ctx: ScratchContext, format: Format) -> str:
           stage, buffer_sprite, sprite
         ],
         "monitors": [],
-        "extensions": [],
+        "extensions": ctx.extensions,
         "meta": {
           "semver": "3.0.0",
           "vm": "13.6.10",
