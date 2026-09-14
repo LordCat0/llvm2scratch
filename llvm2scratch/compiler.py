@@ -3034,6 +3034,10 @@ def getFuncPtrRefs(mod: ir.Module) -> list[tuple[ir.FuncTy, list[str]]]:
   for func in mod.functions.values():
     for block in func.blocks.values():
       for instr in block.instrs:
+        if isinstance(instr, ir.Phi):
+          for value, _ in instr.incoming:
+            all_refs |= getValueFuncPtrRefs(value, global_names)
+          continue
         for val in getInstrValues(instr, False):
           all_refs |= getValueFuncPtrRefs(val, global_names)
 

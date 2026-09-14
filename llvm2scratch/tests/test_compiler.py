@@ -68,6 +68,25 @@ class TestBinOp(unittest.TestCase):
             self.assertIsInstance(got.known, float)
             self.assertEqual(float(expected), got.known, f"Op: {op}, Lft: {unknown:032b}, Known: {known:032b}")
 
+  def testFunctionPointerInPhi(self):
+    mod = parser.parseAssembly("""
+      declare void @callback(i32)
+      define void @main(i1 %condition) {
+      entry:
+        br i1 %condition, label %left, label %right
+      left:
+        br label %merge
+      right:
+        br label %merge
+      merge:
+        %function = phi ptr [ @callback, %left ], [ null, %right ]
+        call void %function(i32 0)
+        ret void
+      }
+    """)
+    refs = getFuncPtrRefs(mod)
+    self.assertEqual(refs, [(ir.FuncTy(ir.VoidTy(), [ir.IntegerTy(32)], False), ["callback"])])
+
   def testWideTrunc(self):
     compile("""
       define i32 @main() {
