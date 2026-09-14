@@ -2526,7 +2526,11 @@ def transInstr(instr: ir.Instr, ctx: Context, bctx: BlockInfo) -> tuple[sb3.Bloc
       res_var = transVar(instr.result, bctx)
       assert res_var.var_type != "param"
 
-      assert isinstance(value, sb3.Value)
+      if isinstance(value, IdxbleValue):
+        if instr.opcode == ir.ConvOpcode.Trunc and isinstance(to_ty, ir.IntegerTy) and to_ty.width <= VARIABLE_MAX_BITS:
+          value = value.vals[0]
+        else:
+          raise CompException(f"Conversion of multi-value types is unsupported: {instr}")
 
       match instr.opcode:
         case ir.ConvOpcode.Trunc | ir.ConvOpcode.ZExt | ir.ConvOpcode.SExt | \
@@ -2536,7 +2540,7 @@ def transInstr(instr: ir.Instr, ctx: Context, bctx: BlockInfo) -> tuple[sb3.Bloc
               f"integers, got type {type(instr.value.type)}")
 
           # TODO FIX: support larger values
-          if instr.value.type.width > VARIABLE_MAX_BITS:
+          if instr.opcode != ir.ConvOpcode.Trunc and instr.value.type.width > VARIABLE_MAX_BITS:
             raise CompException(f"Instruction {instr} currently supports "
                                 f"integers with <= {VARIABLE_MAX_BITS} bits")
 

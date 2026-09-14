@@ -68,5 +68,15 @@ class TestBinOp(unittest.TestCase):
             self.assertIsInstance(got.known, float)
             self.assertEqual(float(expected), got.known, f"Op: {op}, Lft: {unknown:032b}, Known: {known:032b}")
 
+  def testWideTrunc(self):
+    compile("""
+      define i32 @main() {
+      entry:
+        %wide = add i64 4294967296, 1
+        %small = trunc i64 %wide to i32
+        ret i32 %small
+      }
+    """)
+
 if __name__ == "__main__":
   _ = unittest.main()
