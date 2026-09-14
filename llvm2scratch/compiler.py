@@ -3326,6 +3326,18 @@ def transIntrinsic(intrinsic: ir.Intrinsic, args: list[ir.Value], result: Variab
         sb3.ControlFlow("if_else", cond, sb3.BlockList([result.setValue(lft)]), sb3.BlockList([result.setValue(rgt)]))
       ]))
 
+    case ir.Intrinsic.USubSat:
+      lft, rgt = values
+      ty = args[0].type
+      assert isinstance(lft, sb3.Value) and isinstance(rgt, sb3.Value)
+      assert isinstance(ty, ir.IntegerTy)
+      assert result is not None
+      blocks.add(sb3.ControlFlow(
+        "if_else",
+        intCompare(lft, rgt, ty.width, ir.ICmpCond.Ult, ctx),
+        sb3.BlockList([result.setValue(sb3.Known(0))]),
+        sb3.BlockList([result.setValue(sb3.Op("sub", lft, rgt))])))
+
     case ir.Intrinsic.MemCpy:
       dest, src, length, _volatile = values
       assert isinstance(dest, sb3.Value) and isinstance(src, sb3.Value) and isinstance(length, sb3.Value)

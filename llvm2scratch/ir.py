@@ -85,6 +85,7 @@ class Intrinsic(Enum):
   SMin = "llvm.smin"
   UMax = "llvm.umax"
   UMin = "llvm.umin"
+  USubSat = "llvm.usub.sat"
   MemCpy = "llvm.memcpy"
   MemCpyInline = "llvm.memcpy.inline"
   MemMove = "llvm.memmove"
